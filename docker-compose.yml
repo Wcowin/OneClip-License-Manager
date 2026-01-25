@@ -1,0 +1,70 @@
+version: '3.8'
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: license-manager-mysql
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-root_password}
+      MYSQL_DATABASE: ${DB_NAME:-license_db}
+      MYSQL_USER: ${DB_USER:-license_user}
+      MYSQL_PASSWORD: ${DB_PASSWORD:-license_password}
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./database/schema.sql:/docker-entrypoint-initdb.d/schema.sql
+    networks:
+      - license-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${DB_ROOT_PASSWORD:-root_password}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: license-manager-api
+    restart: always
+    ports:
+      - "5000:5000"
+    environment:
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_USER: ${DB_USER:-license_user}
+      DB_PASSWORD: ${DB_PASSWORD:-license_password}
+      DB_NAME: ${DB_NAME:-license_db}
+      API_KEY: ${API_KEY:-your_api_key}
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks:
+      - license-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  web:
+    image: nginx:alpine
+    container_name: license-manager-web
+    restart: always
+    ports:
+      - "8080:80"
+    volumes:
+      - ./admin:/usr/share/nginx/html/admin
+      - ./client:/usr/share/nginx/html/client
+    networks:
+      - license-network
+
+volumes:
+  mysql_data:
+    driver: local
+
+networks:
+  license-network:
+    driver: bridge

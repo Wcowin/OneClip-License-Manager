@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>License Manager - 首页</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background: #f8fafc;
+            color: #333;
+        }
+        
+        .header {
+            background: #3b82f6;
+            color: white;
+            padding: 80px 20px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 48px;
+            margin-bottom: 10px;
+            font-weight: 700;
+        }
+        
+        .header p {
+            font-size: 18px;
+            opacity: 0.9;
+        }
+        
+        .features {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            max-width: 1200px;
+            margin: 60px auto;
+            padding: 0 20px;
+        }
+        
+        .feature-item {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            text-align: center;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            transition: all 0.3s;
+        }
+        
+        .feature-item:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 16px rgba(0,0,0,0.15);
+        }
+        
+        .feature-icon {
+            font-size: 48px;
+            margin-bottom: 15px;
+        }
+        
+        .feature-title {
+            font-weight: 600;
+            margin-bottom: 10px;
+            color: #333;
+        }
+        
+        .feature-desc {
+            color: #666;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+        
+        .pricing {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 40px 20px;
+        }
+        
+        .section-title {
+            text-align: center;
+            font-size: 28px;
+            font-weight: 700;
+            margin-bottom: 40px;
+            color: #333;
+        }
+        
+        .plans {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+        }
+        
+        .plan-card {
+            background: white;
+            border-radius: 16px;
+            padding: 30px;
+            text-align: center;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            transition: all 0.3s;
+            border: 2px solid transparent;
+        }
+        
+        .plan-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 12px 24px rgba(0,0,0,0.15);
+        }
+        
+        .plan-card.popular {
+            border-color: #667eea;
+            position: relative;
+        }
+        
+        .plan-card.popular::before {
+            content: '推荐';
+            position: absolute;
+            top: -12px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #667eea;
+            color: white;
+            padding: 4px 16px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        
+        .plan-card h3 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 20px;
+        }
+        
+        .plan-card .price {
+            font-size: 32px;
+            font-weight: bold;
+            color: #667eea;
+            margin: 15px 0;
+        }
+        
+        .plan-card .price span {
+            font-size: 14px;
+            color: #999;
+            font-weight: normal;
+        }
+        
+        .plan-card .features {
+            list-style: none;
+            padding: 0;
+            margin: 20px 0;
+        }
+        
+        .plan-card .features li {
+            padding: 8px 0;
+            color: #666;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .plan-card .features li:last-child {
+            border-bottom: none;
+        }
+        
+        .btn {
+            width: 100%;
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            background: #3b82f6;
+            color: white;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .btn:hover {
+            background: #2563eb;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+        }
+        
+        .btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        
+        .footer {
+            text-align: center;
+            padding: 40px 20px;
+            color: #666;
+            font-size: 14px;
+            border-top: 1px solid #eee;
+            margin-top:60px;
+        }
+        
+        .footer a {
+            color: #667eea;
+            text-decoration: none;
+            font-weight: 600;
+        }
+        
+        .footer a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🔐 License Manager</h1>
+        <p>简单易用的许可证管理系统</p>
+    </div>
+    
+    <div class="features">
+        <div class="feature-item">
+            <div class="feature-icon">🔑</div>
+            <div class="feature-title">激活码管理</div>
+            <div class="feature-desc">生成、验证和管理激活码</div>
+        </div>
+        <div class="feature-item">
+            <div class="feature-icon">📱</div>
+            <div class="feature-title">设备管理</div>
+            <div class="feature-desc">支持多设备同时使用</div>
+        </div>
+        <div class="feature-item">
+            <div class="feature-icon">📊</div>
+            <div class="feature-title">数据统计</div>
+            <div class="feature-desc">完整的使用统计和历史记录</div>
+        </div>
+        <div class="feature-item">
+            <div class="feature-icon">🔒</div>
+            <div class="feature-title">安全可靠</div>
+            <div class="feature-desc">登录验证和会话管理</div>
+        </div>
+    </div>
+    
+    <div class="pricing">
+        <div class="section-title">选择您的套餐</div>
+        <div class="plans">
+            <div class="plan-card">
+                <h3>📅 月度版</h3>
+                <div class="price">¥29<span>/月</span></div>
+                <ul class="features">
+                    <li>5台设备同时使用</li>
+                    <li>完整功能访问</li>
+                    <li>技术支持</li>
+                    <li>30天有效期</li>
+                </ul>
+                <a href="purchase.html?plan=monthly" class="btn">立即购买</a>
+            </div>
+            
+            <div class="plan-card popular">
+                <h3>📆 年度版</h3>
+                <div class="price">¥299<span>/年</span></div>
+                <ul class="features">
+                    <li>5台设备同时使用</li>
+                    <li>完整功能访问</li>
+                    <li>优先技术支持</li>
+                    <li>365天有效期</li>
+                    <li>节省约17%</li>
+                </ul>
+                <a href="purchase.html?plan=yearly" class="btn">立即购买</a>
+            </div>
+            
+            <div class="plan-card">
+                <h3>♾️ 终身版</h3>
+                <div class="price">¥999<span>/终身</span></div>
+                <ul class="features">
+                    <li>5台设备同时使用</li>
+                    <li>完整功能访问</li>
+                    <li>专属技术支持</li>
+                </ul>
+                <a href="purchase.html?plan=lifetime" class="btn">立即购买</a>
+            </div>
+        </div>
+    </div>
+    
+    <div class="footer">
+        <p>© 2025 License Manager. All rights reserved.</p>
+        <p><a href="admin/login.html">管理后台</a></p>
+    </div>
+</body>
+</html>

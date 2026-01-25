@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>License Manager - 管理后台</title>
+    <style>
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        .header {
+            background: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        
+        .header h1 {
+            color: #333;
+            margin-bottom: 10px;
+        }
+        
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .stat-card {
+            background: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .stat-card h3 {
+            color: #666;
+            font-size: 14px;
+            margin-bottom: 10px;
+        }
+        
+        .stat-card .value {
+            font-size: 32px;
+            font-weight: bold;
+            color: #333;
+        }
+        
+        .card {
+            background: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        
+        .card-header {
+            padding: 20px;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .card-header h2 {
+            font-size: 18px;
+            color: #333;
+        }
+        
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background 0.3s;
+        }
+        
+        .btn-primary {
+            background: #007bff;
+            color: #fff;
+        }
+        
+        .btn-primary:hover {
+            background: #0056b3;
+        }
+        
+        .btn-danger {
+            background: #dc3545;
+            color: #fff;
+        }
+        
+        .btn-danger:hover {
+            background: #c82333;
+        }
+        
+        .btn-success {
+            background: #28a745;
+            color: #fff;
+        }
+        
+        .btn-success:hover {
+            background: #218838;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #eee;
+        }
+        
+        th {
+            background: #f8f9fa;
+            font-weight: 600;
+            color: #666;
+        }
+        
+        tr:hover {
+            background: #f8f9fa;
+        }
+        
+        .badge {
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        
+        .badge-success {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .badge-danger {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+        }
+        
+        .modal.active {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .modal-content {
+            background: #fff;
+            padding: 30px;
+            border-radius: 8px;
+            width: 90%;
+            max-width: 500px;
+        }
+        
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        
+        .modal-header h3 {
+            margin: 0;
+        }
+        
+        .close {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: #999;
+        }
+        
+        .form-group {
+            margin-bottom: 15px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            color: #666;
+            font-size: 14px;
+        }
+        
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        
+        .form-group input:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: #007bff;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+        
+        .error {
+            color: #dc3545;
+            padding: 10px;
+            background: #f8d7da;
+            border-radius: 4px;
+            margin-bottom: 20px;
+        }
+        
+        .success {
+            color: #155724;
+            padding: 10px;
+            background: #d4edda;
+            border-radius: 4px;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                    <h1>🔐 License Manager 管理后台</h1>
+                    <p>许可证管理系统</p>
+                </div>
+                <button class="btn btn-danger" onclick="logout()">退出登录</button>
+            </div>
+        </div>
+        
+        <div class="stats" id="stats">
+            <div class="stat-card">
+                <h3>总许可证数</h3>
+                <div class="value" id="total-licenses">-</div>
+            </div>
+            <div class="stat-card">
+                <h3>活跃许可证</h3>
+                <div class="value" id="active-licenses">-</div>
+            </div>
+            <div class="stat-card">
+                <h3>活跃设备</h3>
+                <div class="value" id="active-devices">-</div>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header">
+                <h2>许可证列表</h2>
+                <button class="btn btn-primary" onclick="showGenerateModal()">生成许可证</button>
+            </div>
+            <div class="card-body">
+                <table id="licenses-table">
+                    <thead>
+                        <tr>
+                            <th>许可证ID</th>
+                            <th>激活码</th>
+                            <th>邮箱</th>
+                            <th>套餐</th>
+                            <th>设备数</th>
+                            <th>状态</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="licenses-body">
+                        <tr>
+                            <td colspan="7" class="loading">加载中...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 生成许可证模态框 -->
+    <div class="modal" id="generate-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>生成许可证</h3>
+                <button class="close" onclick="hideGenerateModal()">&times;</button>
+            </div>
+            <form id="generate-form">
+                <div class="form-group">
+                    <label>套餐类型</label>
+                    <select name="plan" required>
+                        <option value="monthly">月度版（30天）</option>
+                        <option value="yearly">年度版（365天）</option>
+                        <option value="lifetime">终身版</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>邮箱</label>
+                    <input type="email" name="email" required placeholder="user@example.com">
+                </div>
+                <div class="form-group">
+                    <label>设备数量限制</label>
+                    <input type="number" name="device_cap" value="5" min="1" max="100" required>
+                </div>
+                <div class="form-group">
+                    <label>有效期（天数，终身版留空）</label>
+                    <input type="number" name="days" placeholder="留空表示终身版">
+                </div>
+                <div class="form-group">
+                    <label>用户备注</label>
+                    <input type="text" name="user_hint" placeholder="可选备注">
+                </div>
+                <button type="submit" class="btn btn-primary">生成</button>
+            </form>
+        </div>
+    </div>
+    
+    <script>
+        const API_URL = 'http://localhost:5000';
+        
+        // 检查登录状态
+        async function checkLoginStatus() {
+            try {
+                const response = await fetch(`${API_URL}/api/admin/check`, {
+                    credentials: 'include'
+                });
+                const data = await response.json();
+                
+                if (!data.logged_in) {
+                    location.href = '/login.html';
+                }
+            } catch (error) {
+                console.error('检查登录状态失败:', error);
+                location.href = '/login.html';
+            }
+        }
+        
+        // 登出
+        async function logout() {
+            try {
+                await fetch(`${API_URL}/api/admin/logout`, {
+                    method: 'POST',
+                    credentials: 'include'
+                });
+            } catch (error) {
+                console.error('登出失败:', error);
+            }
+            location.href = '/login.html';
+        }
+        
+        // 加载统计数据
+        async function loadStats() {
+            try {
+                const response = await fetch(`${API_URL}/api/admin/stats`, {
+                    credentials: 'include'
+                });
+                const data = await response.json();
+                
+                if (data.success) {
+                    document.getElementById('total-licenses').textContent = data.stats.total_licenses;
+                    document.getElementById('active-licenses').textContent = data.stats.active_licenses;
+                    document.getElementById('active-devices').textContent = data.stats.active_devices;
+                }
+            } catch (error) {
+                console.error('加载统计失败:', error);
+            }
+        }
+        
+        // 加载许可证列表
+        async function loadLicenses() {
+            try {
+                const response = await fetch(`${API_URL}/api/admin/licenses?limit=50`, {
+                    credentials: 'include'
+                });
+                const data = await response.json();
+                
+                if (data.success) {
+                    renderLicenses(data.licenses);
+                } else if (data.code === 'UNAUTHORIZED') {
+                    location.href = '/login.html';
+                }
+            } catch (error) {
+                console.error('加载许可证失败:', error);
+                document.getElementById('licenses-body').innerHTML = `
+                    <tr>
+                        <td colspan="7" class="error">加载失败: ${error.message}</td>
+                    </tr>
+                `;
+            }
+        }
+        
+        // 渲染许可证列表
+        function renderLicenses(licenses) {
+            const tbody = document.getElementById('licenses-body');
+            
+            if (licenses.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:40px;">暂无许可证</td></tr>';
+                return;
+            }
+            
+            tbody.innerHTML = licenses.map(license => `
+                <tr>
+                    <td>${license.license_id}</td>
+                    <td><code>${license.activation_code}</code></td>
+                    <td>${license.email}</td>
+                    <td>${license.plan}</td>
+                    <td>${license.active_devices}/${license.device_limit}</td>
+                    <td><span class="badge ${license.status === 'active' ? 'badge-success' : 'badge-danger'}">${license.status}</span></td>
+                    <td>
+                        <button class="btn btn-danger" onclick="revokeLicense('${license.license_id}')">撤销</button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+        
+        // 显示生成许可证模态框
+        function showGenerateModal() {
+            document.getElementById('generate-modal').classList.add('active');
+        }
+        
+        // 隐藏生成许可证模态框
+        function hideGenerateModal() {
+            document.getElementById('generate-modal').classList.remove('active');
+        }
+        
+        // 生成许可证
+        document.getElementById('generate-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const formData = new FormData(e.target);
+            const data = {
+                plan: formData.get('plan'),
+                email: formData.get('email'),
+                device_cap: parseInt(formData.get('device_cap')),
+                days: formData.get('days') ? parseInt(formData.get('days')) : null,
+                user_hint: formData.get('user_hint')
+            };
+            
+            try {
+                const response = await fetch(`${API_URL}/api/admin/generate`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify(data)
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    alert(`许可证生成成功！\n\n激活码: ${result.license.activation_code}`);
+                    hideGenerateModal();
+                    e.target.reset();
+                    loadLicenses();
+                    loadStats();
+                } else {
+                    alert(`生成失败: ${result.message}`);
+                }
+            } catch (error) {
+                alert(`生成失败: ${error.message}`);
+            }
+        });
+        
+        // 撤销许可证
+        async function revokeLicense(licenseId) {
+            if (!confirm(`确定要撤销许可证 ${licenseId} 吗？`)) {
+                return;
+            }
+            
+            const reason = prompt('请输入撤销原因:');
+            if (!reason) return;
+            
+            try {
+                const response = await fetch(`${API_URL}/api/admin/revoke`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        license_id: licenseId,
+                        reason: reason
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    alert('撤销成功');
+                    loadLicenses();
+                    loadStats();
+                } else {
+                    alert(`撤销失败: ${result.message}`);
+                }
+            } catch (error) {
+                alert(`撤销失败: ${error.message}`);
+            }
+        }
+        
+        // 初始化
+        checkLoginStatus();
+        loadStats();
+        loadLicenses();
+        
+        // 每30秒刷新一次
+        setInterval(() => {
+            loadStats();
+            loadLicenses();
+        }, 30000);
+    </script>
+</body>
+</html>
