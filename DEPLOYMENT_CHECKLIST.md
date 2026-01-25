@@ -31,6 +31,35 @@
 
 ## 快速部署步骤
 
+### 方式1：一键部署脚本（推荐）
+
+```bash
+# 克隆项目
+git clone https://github.com/Wcowin/OneClip-License-Manager.git
+cd OneClip-License-Manager
+
+# 运行一键部署脚本
+chmod +x deploy.sh
+./deploy.sh
+```
+
+或者直接从GitHub下载并运行：
+
+```bash
+# 下载部署脚本
+curl -O https://raw.githubusercontent.com/Wcowin/OneClip-License-Manager/refs/heads/main/deploy.sh
+chmod +x deploy.sh
+./deploy.sh
+```
+
+脚本会自动：
+- 检查Docker和Docker Compose环境
+- 交互式配置环境变量
+- 构建并启动服务
+- 验证部署状态
+
+### 方式2：手动部署
+
 ### 1. 克隆项目
 
 ```bash

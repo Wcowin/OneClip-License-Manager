@@ -4,13 +4,14 @@
 
 本系统支持多种部署方式：
 
-1. **Docker Compose**（推荐）- 最简单快速
-2. **手动部署** - 适合自定义环境
-3. **云服务部署** - 适合生产环境
+1. **一键部署脚本**（推荐）- 最简单快速
+2. **Docker Compose** - 标准部署
+3. **手动部署** - 适合自定义环境
+4. **云服务部署** - 适合生产环境
 
 ---
 
-## 方式1：Docker Compose 部署（推荐）
+## 方式1：一键部署脚本（推荐）
 
 ### 前置要求
 
@@ -21,8 +22,35 @@
 
 ```bash
 # 1. 克隆项目
-git clone https://github.com/yourname/license-manager-demo.git
-cd license-manager-demo
+git clone https://github.com/Wcowin/OneClip-License-Manager.git
+cd OneClip-License-Manager
+
+# 2. 运行一键部署脚本
+chmod +x deploy.sh
+./deploy.sh
+```
+
+脚本会自动：
+- 检查Docker和Docker Compose环境
+- 交互式配置环境变量
+- 构建并启动服务
+- 验证部署状态
+
+---
+
+## 方式2：Docker Compose 部署
+
+### 前置要求
+
+- Docker 20.10+
+- Docker Compose 2.0+
+
+### 快速部署
+
+```bash
+# 1. 克隆项目
+git clone https://github.com/Wcowin/OneClip-License-Manager.git
+cd OneClip-License-Manager
 
 # 2. 配置环境变量
 cp .env.example .env

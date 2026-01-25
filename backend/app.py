@@ -44,7 +44,7 @@ DB_CONFIG = {
     'host': os.getenv('DB_HOST', 'localhost'),
     'port': int(os.getenv('DB_PORT', '3306')),
     'user': os.getenv('DB_USER', 'license_user'),
-    'password': os.getenv('DB_PASSWORD', 'license_password'),
+    'password': os.getenv('DB_PASSWORD'),
     'database': os.getenv('DB_NAME', 'license_db'),
     'charset': 'utf8mb4'
 }
@@ -539,10 +539,9 @@ def payment_notify():
         
         # 生成激活码
         days = 30 if plan == 'monthly' else 365 if plan == 'yearly' else None
-        license_result = license_manager.create_license(
-            activation_code=None,  # 自动生成
-            email=email,
+        license_result = license_manager.generate_license(
             plan=plan,
+            email=email,
             device_cap=5,
             days=days,
             user_hint=f"购买订单: {order_id}"
@@ -562,12 +561,6 @@ def payment_notify():
         return 'fail'
 
 
-@app.route('/health', methods=['GET'])
-def health_check():
-    """健康检查"""
-    return jsonify({'status': 'healthy', 'timestamp': datetime.now(timezone.utc).isoformat()})
-
-
 @app.errorhandler(404)
 def not_found(error):
     return jsonify({'success': False, 'message': 'API端点不存在', 'code': 'NOT_FOUND'}), 404
@@ -581,7 +574,10 @@ def internal_error(error):
 if __name__ == '__main__':
     print("🚀 License Manager API 服务器启动中...")
     print(f"📊 数据库: {DB_CONFIG['host']}:{DB_CONFIG['port']}/{DB_CONFIG['database']}")
-    print(f"🔑 API密钥: {API_KEY[:8]}...")
+    if API_KEY:
+        print(f"🔑 API密钥: {API_KEY[:8]}...")
+    else:
+        print("⚠️ API密钥未设置")
     if zpay_adapter:
         print(f"💳 ZPAY支付系统: 已启用")
     else:
