@@ -21,8 +21,8 @@
 
 ```bash
 # 克隆项目
-git clone https://github.com/yourname/license-manager-demo.git
-cd license-manager-demo
+git clone https://github.com/Wcowin/OneClip-License-Manager.git
+cd OneClip-License-Manager
 
 # 配置环境变量
 cp .env.example .env
@@ -104,8 +104,8 @@ python backend/app.py
 ### 支持的支付平台
 
 **OneClip推荐**：
-- **zpay** - [OneClip](https://oneclip.cloud/)正在使用的支付系统，支持微信支付、支付宝
-![image](https://i.111666.best/image/P2QIiiVZcZKu10wwI50muU.png)  
+- **zpay** - [OneClip](https://oneclip.cloud/)正在使用的支付系统，支持微信支付、支付宝  
+![下载.png](https://i.imgant.com/v2/W5l9vVj.png)
 
 **其他平台**：
 - 微信支付 - 适合国内移动端用户

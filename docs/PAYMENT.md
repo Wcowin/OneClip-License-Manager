@@ -18,7 +18,7 @@
 - 简单易用，适合国内用户
 - 链接：https://z-pay.cn/?uid=19636
 
-![image](https://i.111666.best/image/P2QIiiVZcZKu10wwI50muU.png)  
+![下载.png](https://i.imgant.com/v2/W5l9vVj.png)
 
 ### 其他支付平台
 
