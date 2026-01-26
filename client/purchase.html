@@ -164,10 +164,14 @@
         }
         
         .result {
-            margin-top: 15px;
+            margin-top: 20px;
             padding: 15px;
             border-radius: 8px;
-            display: none;
+        }
+        
+        .result.loading {
+            background: #f0f0f0;
+            color: #666;
         }
         
         .result.success {
@@ -176,6 +180,23 @@
         }
         
         .result.error {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        
+        .coupon-result {
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        
+        .coupon-result .success {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .coupon-result .error {
             background: #f8d7da;
             color: #721c24;
         }
@@ -249,6 +270,11 @@
                     <label>邮箱地址</label>
                     <input type="email" id="purchase-email" placeholder="请输入您的邮箱" required>
                 </div>
+                <div class="form-group">
+                    <label>优惠码（可选）</label>
+                    <input type="text" id="coupon-code" placeholder="请输入优惠码">
+                </div>
+                <div id="coupon-result" class="coupon-result"></div>
                 <button type="submit" class="btn">购买并获取激活码</button>
             </form>
             <div id="purchase-result" class="result"></div>
@@ -271,6 +297,7 @@
         });
         
         let currentPlan = 'monthly';
+        let currentCoupon = null;
         
         function showPurchaseModal(plan) {
             currentPlan = plan;
@@ -282,11 +309,57 @@
             document.getElementById('purchase-modal').classList.remove('active');
         }
         
+        // 验证优惠码
+        document.getElementById('coupon-code').addEventListener('input', async (e) => {
+            const code = e.target.value.trim();
+            const resultDiv = document.getElementById('coupon-result');
+            
+            if (code.length < 3) {
+                resultDiv.innerHTML = '';
+                currentCoupon = null;
+                return;
+            }
+            
+            const plan = document.getElementById('plan-type').value;
+            const prices = {
+                'monthly': 29.99,
+                'yearly': 299.99,
+                'lifetime': 399.99
+            };
+            const basePrice = prices[plan];
+            
+            try {
+                const response = await fetch(`${API_URL}/api/payment/verify-coupon`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        code: code,
+                        plan: plan,
+                        base_price: basePrice
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.valid) {
+                    resultDiv.innerHTML = `<div class="success">✓ ${result.message}</div>`;
+                    currentCoupon = result;
+                } else {
+                    resultDiv.innerHTML = `<div class="error">${result.message}</div>`;
+                    currentCoupon = null;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="error">验证失败</div>`;
+                currentCoupon = null;
+            }
+        });
+        
         document.getElementById('purchase-form').addEventListener('submit', async (e) => {
             e.preventDefault();
             
             const plan = document.getElementById('plan-type').value;
             const email = document.getElementById('purchase-email').value.trim();
+            const couponCode = document.getElementById('coupon-code').value.trim();
             
             if (!email) {
                 alert('请输入邮箱地址');
@@ -304,48 +377,36 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         plan: plan,
-                        email: email
+                        email: email,
+                        coupon_code: couponCode
                     })
                 });
                 
                 const result = await response.json();
                 
                 if (result.success) {
-                    if (result.payment_mode === 'zpay' && result.pay_url) {
-                        // ZPAY真实支付，跳转到支付页面
-                        window.location.href = result.pay_url;
-                    } else if (result.payment_mode === 'mock') {
-                        // 模拟支付，直接生成激活码
-                        const activationCode = generateActivationCode();
-                        const licenseId = generateLicenseId();
-                        const orderId = result.order_id;
-                        
-                        // 跳转到订单完成页面，传递参数
-                        window.location.href = `complete_order.html?activation_code=${activationCode}&email=${email}&plan=${plan}&license_id=${licenseId}&order_id=${orderId}`;
+                    if (result.simulated) {
+                        // 模拟支付
+                        resultDiv.innerHTML = `
+                            <div class="success">
+                                <h3>购买成功！</h3>
+                                <p>激活码: ABCDE-FGHIJ-KLMN</p>
+                                <p>套餐: ${plan}</p>
+                                <p>金额: ¥${result.amount}</p>
+                                ${result.discount > 0 ? `<p>优惠: -¥${result.discount}</p>` : ''}
+                            </div>
+                        `;
                     } else {
-                        alert('支付模式错误');
+                        // 真实支付
+                        window.location.href = result.payment_url;
                     }
                 } else {
-                    alert(result.message || '创建支付订单失败');
-                    resultDiv.innerHTML = '';
+                    resultDiv.innerHTML = `<div class="error">${result.message}</div>`;
                 }
             } catch (error) {
-                console.error('创建支付订单失败:', error);
-                alert('创建支付订单失败');
-                resultDiv.innerHTML = '';
+                resultDiv.innerHTML = `<div class="error">购买失败: ${error.message}</div>`;
             }
         });
-        
-        function generateActivationCode() {
-            // 模拟生成激活码
-            const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-            let code = '';
-            for (let i = 0; i < 15; i++) {
-                code += chars.charAt(Math.floor(Math.random() * chars.length));
-                if (i === 4 || i === 9) code += '-';
-            }
-            return code;
-        }
     </script>
 </body>
 </html>

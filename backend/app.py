@@ -17,6 +17,7 @@ from functools import wraps
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from license_manager import LicenseManager
+from email_sender import send_activation_email
 
 # 配置日志
 logging.basicConfig(level=logging.INFO)
@@ -55,6 +56,25 @@ if not DB_CONFIG['password']:
 
 # API密钥配置（可选，用于客户端验证）
 API_KEY = os.getenv('API_KEY')
+
+# 邮件配置
+EMAIL_CONFIG = {
+    'smtp_server': os.getenv('SMTP_SERVER', 'smtp.qq.com'),
+    'smtp_port': int(os.getenv('SMTP_PORT', 587)),
+    'smtp_user': os.getenv('SMTP_USER'),
+    'smtp_password': os.getenv('SMTP_PASSWORD'),
+    'from_email': os.getenv('SMTP_FROM_EMAIL'),
+    'from_name': os.getenv('SMTP_FROM_NAME', 'License Manager'),
+    'use_ssl': os.getenv('SMTP_USE_SSL', 'false').lower() == 'true'
+}
+
+# 检查邮件配置
+email_enabled = all([
+    EMAIL_CONFIG['smtp_server'],
+    EMAIL_CONFIG['smtp_user'],
+    EMAIL_CONFIG['smtp_password'],
+    EMAIL_CONFIG['from_email']
+])
 
 # ZPAY支付配置
 ZPAY_CONFIG = {
@@ -331,6 +351,445 @@ def admin_generate_license():
         return jsonify({'success': False, 'message': '生成失败'}), 500
 
 
+@app.route('/api/admin/send-email', methods=['POST'])
+@require_admin
+def admin_send_email():
+    """管理员发送激活码邮件"""
+    try:
+        data = request.get_json(force=True)
+        email = data.get('email')
+        activation_code = data.get('activation_code')
+        plan = data.get('plan')
+        device_cap = data.get('device_cap', 5)
+        valid_until = data.get('valid_until')
+        
+        if not email or not activation_code:
+            return jsonify({'success': False, 'message': '缺少必要参数'}), 400
+        
+        if not email_enabled:
+            return jsonify({'success': False, 'message': '邮件功能未配置'}), 400
+        
+        license_info = {
+            'activation_code': activation_code,
+            'plan': plan,
+            'device_cap': device_cap,
+            'valid_until': valid_until
+        }
+        
+        if send_activation_email(email, license_info, EMAIL_CONFIG):
+            return jsonify({'success': True, 'message': '邮件发送成功'})
+        else:
+            return jsonify({'success': False, 'message': '邮件发送失败'}), 500
+            
+    except Exception as e:
+        logger.error(f"❌ 发送邮件失败: {str(e)}")
+        return jsonify({'success': False, 'message': '发送失败'}), 500
+
+
+# ==================== 优惠码管理 ====================
+
+@app.route('/api/admin/coupons', methods=['GET'])
+@require_admin
+def admin_get_coupons():
+    """获取优惠码列表"""
+    try:
+        conn = license_manager.get_connection()
+        if not conn:
+            return jsonify({'success': False, 'message': '数据库连接失败'}), 500
+        
+        cur = conn.cursor()
+        cur.execute('''
+            SELECT id, code, name, type, value, min_amount, plans, usage_limit, user_limit,
+                   start_date, end_date, is_active, usage_count, created_at
+            FROM coupons
+            ORDER BY created_at DESC
+        ''')
+        rows = cur.fetchall()
+        cur.close()
+        
+        coupons = []
+        for row in rows:
+            coupons.append({
+                'id': row[0],
+                'code': row[1],
+                'name': row[2],
+                'type': row[3],
+                'value': row[4],
+                'min_amount': row[5],
+                'plans': json.loads(row[6]) if row[6] else [],
+                'usage_limit': row[7],
+                'user_limit': row[8],
+                'start_date': row[9].isoformat() if row[9] else None,
+                'end_date': row[10].isoformat() if row[10] else None,
+                'is_active': bool(row[11]),
+                'usage_count': row[12],
+                'created_at': row[13].isoformat() if row[13] else None
+            })
+        
+        return jsonify({'success': True, 'coupons': coupons})
+    except Exception as e:
+        logger.error(f"❌ 获取优惠码列表失败: {str(e)}")
+        return jsonify({'success': False, 'message': '获取优惠码列表失败'}), 500
+
+
+@app.route('/api/admin/coupons', methods=['POST'])
+@require_admin
+def admin_create_coupon():
+    """创建优惠码"""
+    try:
+        data = request.get_json(force=True)
+        code = data.get('code', '').strip()
+        name = data.get('name', '')
+        coupon_type = data.get('type', 'fixed')
+        value = data.get('value', 0)
+        min_amount = data.get('min_amount', 0)
+        plans = data.get('plans', [])
+        usage_limit = data.get('usage_limit', 0)
+        user_limit = data.get('user_limit', 0)
+        start_date = data.get('start_date')
+        end_date = data.get('end_date')
+        
+        if not code or not name:
+            return jsonify({'success': False, 'message': '优惠码和名称不能为空'}), 400
+        
+        conn = license_manager.get_connection()
+        if not conn:
+            return jsonify({'success': False, 'message': '数据库连接失败'}), 500
+        cur = conn.cursor()
+        
+        # 检查优惠码是否已存在
+        cur.execute('SELECT id FROM coupons WHERE code = %s', (code,))
+        if cur.fetchone():
+            cur.close()
+            return jsonify({'success': False, 'message': '优惠码已存在'}), 400
+        
+        # 插入新优惠码
+        cur.execute('''
+            INSERT INTO coupons (code, name, type, value, min_amount, plans, usage_limit, user_limit, start_date, end_date)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        ''', (code, name, coupon_type, value, min_amount, json.dumps(plans), usage_limit, user_limit, start_date, end_date))
+        
+        conn.commit()
+        cur.close()
+        
+        logger.info(f"✅ 创建优惠码成功: {code}")
+        return jsonify({'success': True, 'message': '优惠码创建成功'})
+    except Exception as e:
+        logger.error(f"❌ 创建优惠码失败: {str(e)}")
+        return jsonify({'success': False, 'message': '创建优惠码失败'}), 500
+
+
+@app.route('/api/admin/coupons/<int:coupon_id>', methods=['DELETE'])
+@require_admin
+def admin_delete_coupon(coupon_id):
+    """删除优惠码"""
+    try:
+        conn = license_manager.get_connection()
+        if not conn:
+            return jsonify({'success': False, 'message': '数据库连接失败'}), 500
+        cur = conn.cursor()
+        cur.execute('DELETE FROM coupons WHERE id = %s', (coupon_id,))
+        if cur.rowcount == 0:
+            cur.close()
+            return jsonify({'success': False, 'message': '优惠码不存在'}), 404
+        
+        conn.commit()
+        cur.close()
+        
+        logger.info(f"✅ 删除优惠码成功: ID={coupon_id}")
+        return jsonify({'success': True, 'message': '优惠码删除成功'})
+    except Exception as e:
+        logger.error(f"❌ 删除优惠码失败: {str(e)}")
+        return jsonify({'success': False, 'message': '删除优惠码失败'}), 500
+
+
+@app.route('/api/admin/coupons/<int:coupon_id>/toggle', methods=['POST'])
+@require_admin
+def admin_toggle_coupon(coupon_id):
+    """启用/停用优惠码"""
+    try:
+        data = request.get_json(force=True)
+        is_active = data.get('is_active', True)
+        
+        conn = license_manager.get_connection()
+        if not conn:
+            return jsonify({'success': False, 'message': '数据库连接失败'}), 500
+        cur = conn.cursor()
+        cur.execute('UPDATE coupons SET is_active = %s WHERE id = %s', (is_active, coupon_id))
+        if cur.rowcount == 0:
+            cur.close()
+            return jsonify({'success': False, 'message': '优惠码不存在'}), 404
+        
+        conn.commit()
+        cur.close()
+        
+        logger.info(f"✅ 优惠码状态更新成功: ID={coupon_id}, is_active={is_active}")
+        return jsonify({'success': True, 'message': '优惠码状态更新成功'})
+    except Exception as e:
+        logger.error(f"❌ 更新优惠码状态失败: {str(e)}")
+        return jsonify({'success': False, 'message': '更新优惠码状态失败'}), 500
+
+
+@app.route('/api/payment/create', methods=['POST'])
+def create_payment():
+    """创建支付订单"""
+    try:
+        data = request.get_json(force=True)
+        plan = data.get('plan')
+        email = data.get('email')
+        coupon_code = data.get('coupon_code')
+        
+        # 计算价格
+        prices = {
+            'monthly': 29.99,
+            'yearly': 299.99,
+            'lifetime': 399.99
+        }
+        
+        base_price = prices.get(plan, 0)
+        final_price = base_price
+        discount_amount = 0
+        coupon_id = None
+        
+        # 验证优惠码
+        if coupon_code:
+            verify_result = verify_coupon_internal({
+                'code': coupon_code,
+                'plan': plan,
+                'base_price': base_price,
+                'email': email
+            })
+            if verify_result.get('valid'):
+                final_price = verify_result.get('final_price', base_price)
+                discount_amount = verify_result.get('discount', 0)
+                coupon_id = verify_result.get('coupon_id')
+        
+        # 生成订单ID
+        order_id = f"ORD-{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}"
+        
+        # 保存订单到数据库
+        conn = license_manager.get_connection()
+        if conn:
+            cur = conn.cursor()
+            cur.execute('''
+                INSERT INTO payment_orders (order_id, email, plan, amount, final_amount, coupon_code, coupon_id, discount_amount, status)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+            ''', (order_id, email, plan, base_price, final_price, coupon_code, coupon_id, discount_amount, 'pending'))
+            conn.commit()
+            cur.close()
+        
+        # 调用 ZPAY 创建订单
+        if zpay_adapter:
+            result = zpay_adapter.create_order(
+                out_trade_no=order_id,
+                total_amount=int(final_price * 100),  # 转换为分
+                subject=f'{plan}套餐',
+                body=f'{plan}套餐 - {email}',
+                payment_type='alipay',
+                client_ip=request.remote_addr,
+                device='pc',
+                param=f'plan:{plan}|email:{email}'
+            )
+            
+            if result['success']:
+                return jsonify({
+                    'success': True,
+                    'order_id': order_id,
+                    'payment_url': result['payment_url'],
+                    'amount': final_price,
+                    'discount': discount_amount
+                })
+            else:
+                return jsonify({'success': False, 'message': result.get('message', '创建支付订单失败')}), 500
+        else:
+            # 模拟支付
+            return jsonify({
+                'success': True,
+                'order_id': order_id,
+                'payment_url': f'/client/complete_order.html?order_id={order_id}',
+                'amount': final_price,
+                'discount': discount_amount,
+                'simulated': True
+            })
+            
+    except Exception as e:
+        logger.error(f"❌ 创建支付订单失败: {str(e)}")
+        return jsonify({'success': False, 'message': '创建支付订单失败'}), 500
+
+
+def verify_coupon_internal(data):
+    """内部优惠码验证函数"""
+    code = data.get('code', '').strip()
+    plan = data.get('plan')
+    base_price = data.get('base_price', 0)
+    email = data.get('email', '')
+    
+    if not code or not plan or not base_price:
+        return {'valid': False, 'message': '缺少必要参数'}
+    
+    conn = license_manager.get_connection()
+    if not conn:
+        return {'valid': False, 'message': '数据库连接失败'}
+    cur = conn.cursor(dictionary=True)
+    cur.execute('''
+        SELECT id, type, value, min_amount, plans, usage_limit, user_limit,
+               start_date, end_date, is_active, usage_count
+        FROM coupons
+        WHERE code = %s
+    ''', (code,))
+    coupon = cur.fetchone()
+    cur.close()
+    
+    if not coupon:
+        return {'valid': False, 'message': '优惠码不存在'}
+    
+    # 检查优惠码是否激活
+    if not coupon['is_active']:
+        return {'valid': False, 'message': '优惠码已失效'}
+    
+    # 检查有效期
+    now = datetime.now(timezone.utc)
+    if coupon['start_date'] and now < coupon['start_date']:
+        return {'valid': False, 'message': '优惠码尚未生效'}
+    if coupon['end_date'] and now > coupon['end_date']:
+        return {'valid': False, 'message': '优惠码已过期'}
+    
+    # 检查使用次数限制
+    if coupon['usage_limit'] > 0 and coupon['usage_count'] >= coupon['usage_limit']:
+        return {'valid': False, 'message': '优惠码已达到使用次数限制'}
+    
+    # 检查最低消费金额
+    if base_price < coupon['min_amount']:
+        return {'valid': False, 'message': f'最低消费金额 ¥{coupon["min_amount"]}'}
+    
+    # 检查适用套餐
+    if coupon['plans']:
+        plans_list = coupon['plans'] if isinstance(coupon['plans'], list) else json.loads(coupon['plans'])
+        if plan not in plans_list:
+            return {'valid': False, 'message': '此优惠码不适用于当前套餐'}
+    
+    # 检查用户使用次数限制
+    if coupon['user_limit'] > 1:
+        cur = conn.cursor()
+        cur.execute('''
+            SELECT COUNT(*) FROM coupon_usage_logs
+            WHERE coupon_id = %s AND user_email = %s
+        ''', (coupon['id'], email))
+        result = cur.fetchone()
+        user_usage_count = result[0] if result else 0
+        cur.close()
+        
+        if user_usage_count >= coupon['user_limit']:
+            return {'valid': False, 'message': '您已达到此优惠码的使用次数限制'}
+    
+    # 计算折扣
+    if coupon['type'] == 'fixed':
+        discount = coupon['value']
+    else:  # percentage
+        discount = base_price * (coupon['value'] / 100)
+    
+    final_price = max(0, base_price - discount)
+    
+    return {
+        'valid': True,
+        'message': f'优惠码有效，减免 ¥{discount:.2f}',
+        'discount': discount,
+        'final_price': final_price,
+        'coupon_id': coupon['id']
+    }
+
+
+@app.route('/api/payment/verify-coupon', methods=['POST'])
+def verify_coupon():
+    """验证优惠码"""
+    try:
+        data = request.get_json(force=True)
+        code = data.get('code', '').strip()
+        plan = data.get('plan')
+        device_cap = int(data.get('device_cap', 5))
+        base_price = float(data.get('base_price', 0))
+        days = data.get('days')
+        email = data.get('email', '')
+        
+        if not code or not plan or not base_price:
+            return jsonify({'valid': False, 'message': '缺少必要参数'}), 400
+        
+        conn = license_manager.get_connection()
+        if not conn:
+            return jsonify({'valid': False, 'message': '数据库连接失败'}), 500
+        cur = conn.cursor(dictionary=True)
+        cur.execute('''
+            SELECT id, type, value, min_amount, plans, usage_limit, user_limit,
+                   start_date, end_date, is_active, usage_count
+            FROM coupons
+            WHERE code = %s
+        ''', (code,))
+        coupon = cur.fetchone()
+        cur.close()
+        
+        if not coupon:
+            return jsonify({'valid': False, 'message': '优惠码不存在'}), 404
+        
+        # 检查优惠码是否激活
+        if not coupon['is_active']:
+            return jsonify({'valid': False, 'message': '优惠码已失效'})
+        
+        # 检查有效期
+        now = datetime.now(timezone.utc)
+        if coupon['start_date'] and now < coupon['start_date']:
+            return jsonify({'valid': False, 'message': '优惠码尚未生效'})
+        if coupon['end_date'] and now > coupon['end_date']:
+            return jsonify({'valid': False, 'message': '优惠码已过期'})
+        
+        # 检查使用次数限制
+        if coupon['usage_limit'] > 0 and coupon['usage_count'] >= coupon['usage_limit']:
+            return jsonify({'valid': False, 'message': '优惠码已达到使用次数限制'})
+        
+        # 检查最低消费金额
+        if base_price < coupon['min_amount']:
+            return jsonify({'valid': False, 'message': f'最低消费金额 ¥{coupon["min_amount"]}'})
+        
+        # 检查适用套餐
+        if coupon['plans']:
+            plans_list = coupon['plans'] if isinstance(coupon['plans'], list) else json.loads(coupon['plans'])
+            if plan not in plans_list:
+                return jsonify({'valid': False, 'message': '此优惠码不适用于当前套餐'})
+        
+        # 检查用户使用次数限制
+        if coupon['user_limit'] > 1:
+            cur = conn.cursor()
+            cur.execute('''
+                SELECT COUNT(*) FROM coupon_usage_logs
+                WHERE coupon_id = %s AND user_email = %s
+            ''', (coupon['id'], email))
+            result = cur.fetchone()
+            user_usage_count = result[0] if result else 0
+            cur.close()
+            
+            if user_usage_count >= coupon['user_limit']:
+                return jsonify({'valid': False, 'message': '您已达到此优惠码的使用次数限制'})
+        
+        # 计算折扣
+        if coupon['type'] == 'fixed':
+            discount = coupon['value']
+        else:  # percentage
+            discount = base_price * (coupon['value'] / 100)
+        
+        final_price = max(0, base_price - discount)
+        
+        return jsonify({
+            'valid': True,
+            'message': f'优惠码有效，减免 ¥{discount:.2f}',
+            'discount': discount,
+            'final_price': final_price,
+            'coupon_id': coupon['id']
+        })
+        
+    except Exception as e:
+        logger.error(f"❌ 验证优惠码失败: {str(e)}")
+        return jsonify({'valid': False, 'message': '验证优惠码失败'}), 500
+
+
 @app.route('/api/admin/revoke', methods=['POST'])
 @require_admin
 def admin_revoke_license():
@@ -351,6 +810,44 @@ def admin_revoke_license():
     except Exception as e:
         logger.error(f"❌ 撤销许可证失败: {str(e)}")
         return jsonify({'success': False, 'message': '撤销失败'}), 500
+
+
+@app.route('/api/admin/orders', methods=['GET'])
+@require_admin
+def admin_get_orders():
+    """获取支付订单列表"""
+    try:
+        conn = license_manager.get_connection()
+        if not conn:
+            return jsonify({'success': False, 'message': '数据库连接失败'}), 500
+        
+        cur = conn.cursor()
+        cur.execute('''
+            SELECT order_id, email, plan, amount, final_amount, status, created_at, paid_at
+            FROM payment_orders
+            ORDER BY created_at DESC
+            LIMIT 100
+        ''')
+        rows = cur.fetchall()
+        cur.close()
+        
+        orders = []
+        for row in rows:
+            orders.append({
+                'order_id': row[0],
+                'email': row[1],
+                'plan': row[2],
+                'amount': row[3],
+                'final_amount': row[4],
+                'status': row[5],
+                'created_at': row[6].isoformat() if row[6] else None,
+                'paid_at': row[7].isoformat() if row[7] else None
+            })
+        
+        return jsonify({'success': True, 'orders': orders})
+    except Exception as e:
+        logger.error(f"❌ 获取订单列表失败: {str(e)}")
+        return jsonify({'success': False, 'message': '获取订单列表失败'}), 500
 
 
 @app.route('/api/admin/deactivate-device', methods=['POST'])
@@ -552,6 +1049,61 @@ def payment_notify():
             return 'fail'
         
         logger.info(f"ZPAY支付成功，许可证生成成功: {order_id}")
+        
+        # 更新订单状态
+        conn = license_manager.get_connection()
+        if conn:
+            cur = conn.cursor()
+            cur.execute('''
+                UPDATE payment_orders
+                SET status = 'paid', paid_at = %s, activation_code = %s, license_id = %s
+                WHERE order_id = %s
+            ''', (datetime.now(timezone.utc), license_result.get('activation_code'), license_result.get('license_id'), order_id))
+            conn.commit()
+            
+            # 记录优惠码使用
+            cur.execute('''
+                SELECT coupon_id, coupon_code, amount, final_amount
+                FROM payment_orders
+                WHERE order_id = %s
+            ''', (order_id,))
+            order_data = cur.fetchone()
+            if order_data and order_data[0]:  # coupon_id
+                coupon_id, coupon_code, amount, final_amount = order_data
+                cur.execute('''
+                    INSERT INTO coupon_usage_logs (coupon_id, coupon_code, user_email, order_id, original_amount, discount_amount, final_amount)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s)
+                ''', (coupon_id, coupon_code, email, order_id, amount, amount - final_amount, final_amount))
+                
+                # 更新优惠码使用次数
+                cur.execute('UPDATE coupons SET usage_count = usage_count + 1 WHERE id = %s', (coupon_id,))
+                conn.commit()
+            
+            cur.close()
+        
+        # 发送激活码邮件
+        if email_enabled and email:
+            try:
+                license_info = {
+                    'activation_code': license_result.get('activation_code'),
+                    'plan': plan,
+                    'device_cap': 5,
+                    'valid_until': license_result.get('valid_until')
+                }
+                if send_activation_email(email, license_info, EMAIL_CONFIG):
+                    # 更新邮件发送状态
+                    conn = license_manager.get_connection()
+                    if conn:
+                        cur = conn.cursor()
+                        cur.execute('UPDATE payment_orders SET email_sent = 1 WHERE order_id = %s', (order_id,))
+                        conn.commit()
+                        cur.close()
+                    logger.info(f"✅ 激活码邮件发送成功: {email}")
+                else:
+                    logger.warning(f"⚠️ 激活码邮件发送失败: {email}")
+            except Exception as e:
+                logger.error(f"❌ 发送邮件异常: {str(e)}")
+        
         return 'success'
         
     except Exception as e:

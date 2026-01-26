@@ -238,6 +238,12 @@ license-manager-demo/
 | ADMIN_USERNAME | 管理员用户名 | admin | 是 |
 | ADMIN_PASSWORD | 管理员密码 | - | 是 |
 | API_KEY | API密钥 | - | 是 |
+| SMTP_SERVER | SMTP服务器 | smtp.qq.com | 否 |
+| SMTP_PORT | SMTP端口 | 587 | 否 |
+| SMTP_USER | 邮箱账号 | - | 否 |
+| SMTP_PASSWORD | SMTP授权码 | - | 否 |
+| SMTP_FROM_EMAIL | 发件人邮箱 | - | 否 |
+| SMTP_FROM_NAME | 发件人名称 | License Manager | 否 |
 
 ### 套餐类型
 
@@ -245,9 +251,15 @@ license-manager-demo/
 - `yearly`：年度版（默认365天）
 - `lifetime`：终身版（永久有效）
 
-## API文档
+## 文档
 
-详细的API文档请参考 [docs/API.md](docs/API.md)
+- [API文档](docs/API.md) - API接口文档
+- [客户端集成](docs/CLIENT.md) - 客户端集成指南
+- [部署指南](docs/DEPLOY.md) - 部署教程
+- [服务器部署](docs/SERVER_DEPLOY.md) - 生产环境部署
+- [支付集成](docs/PAYMENT.md) - 支付系统配置
+- [邮件配置](docs/EMAIL.md) - 邮件功能配置
+- [优惠码系统](docs/COUPON.md) - 优惠码管理指南
 
 ## 安全建议
 

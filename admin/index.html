@@ -291,6 +291,111 @@
                 </table>
             </div>
         </div>
+        
+        <div class="card">
+            <div class="card-header">
+                <h2>优惠码管理</h2>
+                <button class="btn btn-primary" onclick="showCreateCouponModal()">创建优惠码</button>
+            </div>
+            <div class="card-body">
+                <table id="coupons-table">
+                    <thead>
+                        <tr>
+                            <th>优惠码</th>
+                            <th>名称</th>
+                            <th>类型</th>
+                            <th>折扣值</th>
+                            <th>使用次数</th>
+                            <th>状态</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="coupons-body">
+                        <tr>
+                            <td colspan="7" class="loading">加载中...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header">
+                <h2>订单列表</h2>
+            </div>
+            <div class="card-body">
+                <table id="orders-table">
+                    <thead>
+                        <tr>
+                            <th>订单ID</th>
+                            <th>邮箱</th>
+                            <th>套餐</th>
+                            <th>金额</th>
+                            <th>优惠金额</th>
+                            <th>状态</th>
+                            <th>创建时间</th>
+                        </tr>
+                    </thead>
+                    <tbody id="orders-body">
+                        <tr>
+                            <td colspan="7" class="loading">加载中...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 创建优惠码模态框 -->
+    <div class="modal" id="create-coupon-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>创建优惠码</h3>
+                <button class="close" onclick="hideCreateCouponModal()">&times;</button>
+            </div>
+            <form id="create-coupon-form">
+                <div class="form-group">
+                    <label>优惠码</label>
+                    <input type="text" name="code" required placeholder="例如: WELCOME2024">
+                </div>
+                <div class="form-group">
+                    <label>名称</label>
+                    <input type="text" name="name" required placeholder="优惠码名称">
+                </div>
+                <div class="form-group">
+                    <label>折扣类型</label>
+                    <select name="type" required>
+                        <option value="fixed">固定金额</option>
+                        <option value="percentage">百分比折扣</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>折扣值</label>
+                    <input type="number" name="value" required placeholder="固定金额或百分比">
+                </div>
+                <div class="form-group">
+                    <label>最低消费金额</label>
+                    <input type="number" name="min_amount" value="0" placeholder="0表示无限制">
+                </div>
+                <div class="form-group">
+                    <label>适用套餐</label>
+                    <select name="plans" multiple>
+                        <option value="monthly">月度版</option>
+                        <option value="yearly">年度版</option>
+                        <option value="lifetime">终身版</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>使用次数限制</label>
+                    <input type="number" name="usage_limit" value="0" placeholder="0表示无限制">
+                </div>
+                <div class="form-group">
+                    <label>每用户使用次数限制</label>
+                    <input type="number" name="user_limit" value="0" placeholder="0表示无限制">
+                </div>
+                <button type="submit" class="btn btn-primary">创建</button>
+            </form>
+        </div>
     </div>
     
     <!-- 生成许可证模态框 -->
@@ -513,12 +618,222 @@
         checkLoginStatus();
         loadStats();
         loadLicenses();
+        loadCoupons();
+        loadOrders();
         
         // 每30秒刷新一次
         setInterval(() => {
             loadStats();
             loadLicenses();
+            loadCoupons();
+            loadOrders();
         }, 30000);
+        
+        // ==================== 优惠码管理 ====================
+        
+        // 加载优惠码列表
+        async function loadCoupons() {
+            try {
+                const response = await fetch(`${API_URL}/api/admin/coupons`, {
+                    credentials: 'include'
+                });
+                const data = await response.json();
+                
+                if (data.success) {
+                    renderCoupons(data.coupons);
+                } else {
+                    document.getElementById('coupons-body').innerHTML = `
+                        <tr>
+                            <td colspan="7" class="error">加载失败: ${data.message}</td>
+                        </tr>
+                    `;
+                }
+            } catch (error) {
+                document.getElementById('coupons-body').innerHTML = `
+                    <tr>
+                        <td colspan="7" class="error">加载失败: ${error.message}</td>
+                    </tr>
+                `;
+            }
+        }
+        
+        // 渲染优惠码列表
+        function renderCoupons(coupons) {
+            const tbody = document.getElementById('coupons-body');
+            
+            if (coupons.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:40px;">暂无优惠码</td></tr>';
+                return;
+            }
+            
+            tbody.innerHTML = coupons.map(coupon => `
+                <tr>
+                    <td><code>${coupon.code}</code></td>
+                    <td>${coupon.name}</td>
+                    <td>${coupon.type === 'fixed' ? '固定金额' : '百分比'}</td>
+                    <td>${coupon.type === 'fixed' ? '¥' + coupon.value : coupon.value + '%'}</td>
+                    <td>${coupon.usage_count}/${coupon.usage_limit || '∞'}</td>
+                    <td><span class="badge ${coupon.is_active ? 'badge-success' : 'badge-danger'}">${coupon.is_active ? '激活' : '停用'}</span></td>
+                    <td>
+                        <button class="btn btn-sm ${coupon.is_active ? 'btn-warning' : 'btn-success'}" onclick="toggleCoupon(${coupon.id}, ${!coupon.is_active})">
+                            ${coupon.is_active ? '停用' : '启用'}
+                        </button>
+                        <button class="btn btn-sm btn-danger" onclick="deleteCoupon(${coupon.id})">删除</button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+        
+        // 显示创建优惠码模态框
+        function showCreateCouponModal() {
+            document.getElementById('create-coupon-modal').classList.add('active');
+        }
+        
+        // 隐藏创建优惠码模态框
+        function hideCreateCouponModal() {
+            document.getElementById('create-coupon-modal').classList.remove('active');
+        }
+        
+        // 创建优惠码
+        document.getElementById('create-coupon-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const formData = new FormData(e.target);
+            const plans = [];
+            e.target.querySelectorAll('select[name="plans"] option:checked').forEach(opt => {
+                plans.push(opt.value);
+            });
+            
+            const data = {
+                code: formData.get('code'),
+                name: formData.get('name'),
+                type: formData.get('type'),
+                value: parseFloat(formData.get('value')),
+                min_amount: parseFloat(formData.get('min_amount')),
+                plans: plans,
+                usage_limit: parseInt(formData.get('usage_limit')),
+                user_limit: parseInt(formData.get('user_limit'))
+            };
+            
+            try {
+                const response = await fetch(`${API_URL}/api/admin/coupons`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify(data)
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    alert('优惠码创建成功');
+                    hideCreateCouponModal();
+                    e.target.reset();
+                    loadCoupons();
+                } else {
+                    alert(`创建失败: ${result.message}`);
+                }
+            } catch (error) {
+                alert(`创建失败: ${error.message}`);
+            }
+        });
+        
+        // 切换优惠码状态
+        async function toggleCoupon(couponId, isActive) {
+            try {
+                const response = await fetch(`${API_URL}/api/admin/coupons/${couponId}/toggle`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ is_active: isActive })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    loadCoupons();
+                } else {
+                    alert(`操作失败: ${result.message}`);
+                }
+            } catch (error) {
+                alert(`操作失败: ${error.message}`);
+            }
+        }
+        
+        // 删除优惠码
+        async function deleteCoupon(couponId) {
+            if (!confirm('确定要删除此优惠码吗？')) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_URL}/api/admin/coupons/${couponId}`, {
+                    method: 'DELETE',
+                    credentials: 'include'
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    alert('删除成功');
+                    loadCoupons();
+                } else {
+                    alert(`删除失败: ${result.message}`);
+                }
+            } catch (error) {
+                alert(`删除失败: ${error.message}`);
+            }
+        }
+        
+        // ==================== 订单管理 ====================
+        
+        // 加载订单列表
+        async function loadOrders() {
+            try {
+                const response = await fetch(`${API_URL}/api/admin/orders`, {
+                    credentials: 'include'
+                });
+                const data = await response.json();
+                
+                if (data.success) {
+                    renderOrders(data.orders);
+                } else {
+                    document.getElementById('orders-body').innerHTML = `
+                        <tr>
+                            <td colspan="7" class="error">加载失败: ${data.message}</td>
+                        </tr>
+                    `;
+                }
+            } catch (error) {
+                document.getElementById('orders-body').innerHTML = `
+                    <tr>
+                        <td colspan="7" class="error">加载失败: ${error.message}</td>
+                    </tr>
+                `;
+            }
+        }
+        
+        // 渲染订单列表
+        function renderOrders(orders) {
+            const tbody = document.getElementById('orders-body');
+            
+            if (orders.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:40px;">暂无订单</td></tr>';
+                return;
+            }
+            
+            tbody.innerHTML = orders.map(order => `
+                <tr>
+                    <td><code>${order.order_id}</code></td>
+                    <td>${order.email}</td>
+                    <td>${order.plan}</td>
+                    <td>¥${order.amount}</td>
+                    <td>¥${order.amount - order.final_amount}</td>
+                    <td><span class="badge ${order.status === 'paid' ? 'badge-success' : 'badge-warning'}">${order.status}</span></td>
+                    <td>${new Date(order.created_at).toLocaleString()}</td>
+                </tr>
+            `).join('');
+        }
     </script>
 </body>
 </html>
