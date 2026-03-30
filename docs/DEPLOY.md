@@ -533,6 +533,4 @@ locust -f locustfile.py --host=http://localhost:5000
 
 ## 支持与帮助
 
-- **文档**: https://github.com/yourname/license-manager-demo
-- **问题反馈**: https://github.com/yourname/license-manager-demo/issues
-- **邮件**: support@example.com
+- **邮件**: wcowin@qq.com
